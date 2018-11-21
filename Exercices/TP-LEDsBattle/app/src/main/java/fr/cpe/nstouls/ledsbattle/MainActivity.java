@@ -5,6 +5,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -21,6 +22,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener{
 
@@ -29,6 +31,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Button startBtn;
     private TextView tvData;
     private TextView playerDisp;
+    private TextView resultTV;
     private EditText edIP;
     private EditText edPort;
     private InetAddress address;
@@ -49,6 +52,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         edPort     = (EditText) findViewById(R.id.Port);
         playerDisp = (TextView) findViewById(R.id.dispPlayer);
         startBtn   = (Button)   findViewById(R.id.startBtn);
+        resultTV   = (TextView) findViewById(R.id.resultTV);
 
         btnPlayer1.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -76,40 +80,100 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         startBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (msg == null) {
-                    Toast.makeText(MainActivity.this,"Veuillez choisir le player d'abord",Toast.LENGTH_LONG).show();
-                } else {
-                    try {
-                        address = InetAddress.getByName(edIP.getText().toString());
-                        port = Integer.parseInt(edPort.getText().toString());
-                        socket = new DatagramSocket();
-                        btnPlayer1.setEnabled(false);
-                        btnPlayer2.setEnabled(false);
-                        (new Thread() {
-                            @Override
-                            public void run() {
-                                byte[] buffer = "(0)".getBytes();
-                                packet = new DatagramPacket(buffer, buffer.length, address, port);
-                                try {
-                                    socket.send(packet);
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                        }).start();
-                    } catch(UnknownHostException e){
-                        e.printStackTrace();
-                    } catch(SocketException e){
-                        e.printStackTrace();
-                    } catch(Exception e){
-                        e.printStackTrace();
-                    }
-                }
+                MainActivity.this.start();
             }
         });
 
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+
+    public void start() {
+        if (msg == null) {
+            Toast.makeText(MainActivity.this,"Veuillez choisir le player d'abord",Toast.LENGTH_LONG).show();
+        } else {
+            try {
+                address = InetAddress.getByName(edIP.getText().toString());
+                port = Integer.parseInt(edPort.getText().toString());
+                socket = new DatagramSocket();
+                btnPlayer1.setEnabled(false);
+                btnPlayer2.setEnabled(false);
+                startBtn.setEnabled(false);
+                edPort.setEnabled(false);
+                edIP.setEnabled(false);
+
+                (new ResultListener()).execute();
+
+                (new Thread() {
+                    @Override
+                    public void run() {
+                        byte[] buffer = "(0)".getBytes(); // Reset du serveur
+                        packet = new DatagramPacket(buffer, buffer.length, address, port);
+                        try {
+                            socket.send(packet);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }).start();
+            } catch(UnknownHostException e){
+                e.printStackTrace();
+            } catch(SocketException e){
+                e.printStackTrace();
+            } catch(Exception e){
+                e.printStackTrace();
+            }
+        }
+    }
+
+    class ResultListener extends AsyncTask<Void,String,Void> {
+        @Override
+        protected Void doInBackground(Void... voids) {
+            try{
+                Log.d("Réception","Go !");
+                byte[] buffer = new byte[3];
+                if(socket != null) {
+                    DatagramPacket p = new DatagramPacket(buffer, buffer.length);
+                    socket.receive(p);
+                    Log.d("Réception","J'ai reçu un truc !! :D");
+                    String msg = (new String(buffer,0,p.getLength())).trim();
+
+                    if(msg.length()>0) {
+                        publishProgress(msg);
+                    } else {
+                        Log.d("Réception","Message : "+msg);
+                    }
+                }
+                Log.d("Réception","Pré-fin légitime");
+            } catch(Exception e) {
+                Log.d("Réception","Erreur");
+                publishProgress("...une erreur ...");
+            }
+            Log.d("Réception","Fin");
+
+            return null;
+        }
+
+        @Override
+        protected void onProgressUpdate(String... values) {
+            super.onProgressUpdate(values);
+            if(values.length>=1 && values[0]!= null && values[0].equals("(1)")) {
+                resultTV.setTextColor(getResources().getColor(R.color.colorWin));
+                resultTV.setText("You win !");
+            } else if(values.length>=1 && values[0]!= null && values[0].equals("(0)")) {
+                resultTV.setTextColor(getResources().getColor(R.color.colorLoose));
+                resultTV.setText("You loose !");
+            } else {
+                resultTV.setText("WTF ? " + values[0]);
+            }
+            btnPlayer1.setEnabled(true);
+            btnPlayer2.setEnabled(true);
+            startBtn.setEnabled(true);
+            edPort.setEnabled(true);
+            edIP.setEnabled(true);
+            socket.close();
+            socket=null;
+        }
     }
 
 
@@ -156,12 +220,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     }).start();
                     joue=true;
                 }
-                Log.d("CAPTEUR",v+" "+joue+" positif");
+                Log.v("CAPTEUR",v+" "+joue+" positif");
             } else if(v<0) {
                 joue=false;
-                Log.d("CAPTEUR",v+" "+joue+" négatif");
+                Log.v("CAPTEUR",v+" "+joue+" négatif");
             } else {
-                Log.d("CAPTEUR",v+" "+joue+ " angle mort ...");
+                Log.v("CAPTEUR",v+" "+joue+ " angle mort ...");
             }
         }
     }
