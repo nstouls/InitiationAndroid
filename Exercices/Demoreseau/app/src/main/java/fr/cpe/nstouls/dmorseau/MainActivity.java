@@ -21,7 +21,8 @@ public class MainActivity extends AppCompatActivity {
     private Button btnSend;
 
     private final int PORT = 10000;
-    private final String IP = "192.168.1.97";
+//    private final String IP = "192.168.1.97";
+    private final String IP = "192.168.1.5";
     private InetAddress address;
     private DatagramSocket UDPSocket;
 
@@ -33,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
         tvReceived = (TextView) findViewById(R.id.received);
         etToSend = (EditText) findViewById(R.id.testToSend);
         btnSend = (Button) findViewById(R.id.btnSend);
+        btnSend.setText("Send to "+IP+":"+PORT);
         btnSend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
